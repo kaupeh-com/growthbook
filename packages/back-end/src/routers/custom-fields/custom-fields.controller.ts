@@ -273,10 +273,7 @@ export const deleteCustomField = async (
   const { index } = req.query;
   const context = getContextFromReq(req);
 
-  const customFields = await context.models.customFields.deleteCustomField(
-    id,
-    index,
-  );
+  const customFields = await context.models.customFields.deleteCustomField(id);
 
   if (!customFields) {
     return context.throwNotFoundError("Custom field not found");

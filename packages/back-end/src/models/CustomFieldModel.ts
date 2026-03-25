@@ -81,7 +81,7 @@ export class CustomFieldModel extends BaseClass {
       ...doc,
       fields: doc.fields.map((f) => ({
         ...f,
-        section: f.section ?? "feature",
+        sections: f.sections ?? ["feature"],
         projects: (f.projects ?? []).filter((p) => p !== ""),
       })),
     };
@@ -124,12 +124,12 @@ export class CustomFieldModel extends BaseClass {
     section,
     project,
   }: {
-    section: string;
+    section: "feature" | "experiment";
     project?: string;
   }) {
     const customFields = await this.getCustomFields();
-    const filteredCustomFields = customFields?.fields.filter(
-      (v) => v.section === section,
+    const filteredCustomFields = customFields?.fields.filter((v) =>
+      v.sections.includes(section),
     );
     if (!filteredCustomFields || filteredCustomFields.length === 0) {
       return filteredCustomFields;
