@@ -32,7 +32,7 @@ export default class ClickHouse extends SqlIntegration {
     return ["password"];
   }
   getFormatDialect(): FormatDialect {
-    return ""; // ClickHouse not directly supported by sql-formatter
+    return "clickhouse";
   }
 
   async runQuery(sql: string): Promise<QueryResponse> {
