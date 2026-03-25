@@ -270,7 +270,6 @@ export const deleteCustomField = async (
   req.checkPermissions("manageCustomFields");
 
   const { id } = req.params;
-  const { index } = req.query;
   const context = getContextFromReq(req);
 
   const customFields = await context.models.customFields.deleteCustomField(id);
