@@ -277,6 +277,7 @@ The metadata PR will build on this foundation!
       ```
 
     - **NO temporary `.project` field needed!**
+
   - Update `generateAutoExperimentsPayload()`:
     - Same metadata logic as features
   - **REMOVE** (no longer needed):

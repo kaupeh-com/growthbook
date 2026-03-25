@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SafeRolloutInterface, HoldoutInterface } from "shared/validators";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -30,6 +31,7 @@ import { HoldoutRule } from "./HoldoutRule";
 
 export default function RuleList({
   feature,
+  baseFeature,
   mutate,
   environment,
   setRuleModal,
@@ -42,9 +44,12 @@ export default function RuleList({
   isDraft,
   safeRolloutsMap,
   holdout,
+  holdoutIsDeleted,
   openHoldoutModal,
+  revisionList,
 }: {
   feature: FeatureInterface;
+  baseFeature: FeatureInterface;
   environment: string;
   mutate: () => void;
   setRuleModal: (args: {
@@ -65,7 +70,9 @@ export default function RuleList({
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   holdout: HoldoutInterface | undefined;
+  holdoutIsDeleted: boolean;
   openHoldoutModal: () => void;
+  revisionList: MinimalFeatureRevisionInterface[];
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -85,7 +92,7 @@ export default function RuleList({
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length && !holdout) {
+  if (!items.length && !holdout && !holdoutIsDeleted) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -106,115 +113,118 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
-    !locked &&
     permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
     <Flex direction="column" gap="3">
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={async ({ active, over }) => {
-        if (!canEdit) {
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={async ({ active, over }) => {
+          if (!canEdit) {
+            setActiveId(null);
+            return;
+          }
+
+          if (over && active.id !== over.id) {
+            const oldIndex = getRuleIndex(active.id);
+            const newIndex = getRuleIndex(over.id);
+
+            if (oldIndex === -1 || newIndex === -1) return;
+
+            const newRules = arrayMove(items, oldIndex, newIndex);
+
+            setItems(newRules);
+            const res = await apiCall<{ version: number }>(
+              `/feature/${feature.id}/${version}/reorder`,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  environment,
+                  from: oldIndex,
+                  to: newIndex,
+                }),
+              },
+            );
+            await mutate();
+            res.version && setVersion(res.version);
+          }
           setActiveId(null);
-          return;
-        }
-
-        if (over && active.id !== over.id) {
-          const oldIndex = getRuleIndex(active.id);
-          const newIndex = getRuleIndex(over.id);
-
-          if (oldIndex === -1 || newIndex === -1) return;
-
-          const newRules = arrayMove(items, oldIndex, newIndex);
-
-          setItems(newRules);
-          const res = await apiCall<{ version: number }>(
-            `/feature/${feature.id}/${version}/reorder`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                environment,
-                from: oldIndex,
-                to: newIndex,
-              }),
-            },
-          );
-          await mutate();
-          res.version && setVersion(res.version);
-        }
-        setActiveId(null);
-      }}
-      onDragStart={({ active }) => {
-        if (!canEdit) {
-          return;
-        }
-        setActiveId(active.id);
-      }}
-    >
-      {inactiveRules.length === items.length && hideInactive && (
-        <div className="px-3 mb-3">
-          <em>No Active Rules</em>
-        </div>
-      )}
-      {holdout && (
-        <HoldoutRule
-          feature={feature}
-          setRuleModal={openHoldoutModal}
-          mutate={mutate}
-          ruleCount={items.length}
-        />
-      )}
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {items.map(({ ...rule }, i) => (
-          <SortableRule
-            key={i + rule.id}
-            environment={environment}
-            i={i}
-            rule={rule}
-            feature={feature}
+        }}
+        onDragStart={({ active }) => {
+          if (!canEdit) {
+            return;
+          }
+          setActiveId(active.id);
+        }}
+      >
+        {inactiveRules.length === items.length && hideInactive && (
+          <div className="px-3 mb-3">
+            <em>No Active Rules</em>
+          </div>
+        )}
+        {(holdout || holdoutIsDeleted) && (
+          <HoldoutRule
+            feature={holdoutIsDeleted ? baseFeature : feature}
+            isDeleted={holdoutIsDeleted}
+            setRuleModal={openHoldoutModal}
             mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            unreachable={!!unreachableIndex && i >= unreachableIndex}
-            version={version}
+            ruleCount={items.length}
+            revisionList={revisionList}
             setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-            holdout={holdout}
+            isLocked={locked}
           />
-        ))}
-      </SortableContext>
-      <DragOverlay>
-        {activeRule ? (
-          <Rule
-            i={getRuleIndex(activeId as string)}
-            environment={environment}
-            rule={activeRule}
-            feature={feature}
-            mutate={mutate}
-            setRuleModal={setRuleModal}
-            setCopyRuleModal={setCopyRuleModal}
-            version={version}
-            setVersion={setVersion}
-            locked={locked}
-            experimentsMap={experimentsMap}
-            hideInactive={hideInactive}
-            unreachable={
-              !!unreachableIndex &&
-              getRuleIndex(activeId as string) >= unreachableIndex
-            }
-            isDraft={isDraft}
-            safeRolloutsMap={safeRolloutsMap}
-            holdout={holdout}
-          />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        )}
+        <SortableContext items={items} strategy={verticalListSortingStrategy}>
+          {items.map(({ ...rule }, i) => (
+            <SortableRule
+              key={i + rule.id}
+              environment={environment}
+              i={i}
+              rule={rule}
+              feature={feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+              setCopyRuleModal={setCopyRuleModal}
+              unreachable={!!unreachableIndex && i >= unreachableIndex}
+              version={version}
+              setVersion={setVersion}
+              locked={locked}
+              experimentsMap={experimentsMap}
+              hideInactive={hideInactive}
+              isDraft={isDraft}
+              safeRolloutsMap={safeRolloutsMap}
+              holdout={holdout}
+            />
+          ))}
+        </SortableContext>
+        <DragOverlay>
+          {activeRule ? (
+            <Rule
+              i={getRuleIndex(activeId as string)}
+              environment={environment}
+              rule={activeRule}
+              feature={feature}
+              mutate={mutate}
+              setRuleModal={setRuleModal}
+              setCopyRuleModal={setCopyRuleModal}
+              version={version}
+              setVersion={setVersion}
+              locked={locked}
+              experimentsMap={experimentsMap}
+              hideInactive={hideInactive}
+              unreachable={
+                !!unreachableIndex &&
+                getRuleIndex(activeId as string) >= unreachableIndex
+              }
+              isDraft={isDraft}
+              safeRolloutsMap={safeRolloutsMap}
+              holdout={holdout}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </Flex>
   );
 }

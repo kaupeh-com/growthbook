@@ -1,19 +1,17 @@
-import { omit } from "lodash";
 import { z } from "zod";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
-  customFieldSectionValues,
-  apiCustomFieldInterface,
   apiCreateCustomFieldBody,
   apiUpdateCustomFieldBody,
   ApiCustomField,
 } from "shared/validators";
-import { CustomFieldSection } from "shared/types/custom-fields";
 import { ApiRequest } from "back-end/src/util/handler";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
-import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { migrateCustomFieldValues } from "back-end/src/services/customFieldMigration";
+import {
+  customFieldApiSpec,
+  listCustomFieldsEndpoint,
+} from "back-end/src/api/specs/custom-field.spec";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -26,40 +24,13 @@ const BaseClass = MakeModelClass({
     updateEvent: "customField.update",
     deleteEvent: "customField.delete",
   },
-  globallyUniqueIds: false,
+  globallyUniquePrimaryKeys: false,
   apiConfig: {
     modelKey: "customFields",
-    modelSingular: "customField",
-    modelPlural: "customFields",
-    apiInterface: apiCustomFieldInterface,
-    schemas: {
-      createBody: apiCreateCustomFieldBody,
-      updateBody: apiUpdateCustomFieldBody,
-    },
-    pathBase: "/custom-fields",
-    includeDefaultCrud: false,
-    crudActions: ["create", "delete", "get", "update"],
-    crudValidatorOverrides: {
-      delete: {
-        bodySchema: z.never(),
-        querySchema: z.strictObject({
-          index: z.coerce.number().optional(),
-        }),
-        paramsSchema: z.object({ id: z.string() }).strict(),
-      },
-    },
+    openApiSpec: customFieldApiSpec,
     customHandlers: [
       defineCustomApiHandler({
-        pathFragment: "",
-        verb: "get",
-        operationId: "listCustomFields",
-        validator: {
-          bodySchema: z.never(),
-          querySchema: z.strictObject({ projectId: z.string().optional() }),
-          paramsSchema: z.never(),
-        },
-        zodReturnObject: z.array(apiCustomFieldInterface),
-        summary: "Get all custom fields",
+        ...listCustomFieldsEndpoint,
         reqHandler: async (req): Promise<ApiCustomField[]> => {
           const projectId = req.query.projectId;
           const fields = projectId
@@ -77,18 +48,6 @@ const BaseClass = MakeModelClass({
 });
 
 export type CustomField = z.infer<typeof customFieldsPropsValidator>;
-
-type LegacyCustomField = Omit<CustomField, "sections"> & {
-  section?: CustomFieldSection; // legacy
-  sections?: CustomFieldSection[];
-};
-
-type LegacyCustomFieldsDocument = Omit<
-  z.infer<typeof customFieldsValidator>,
-  "fields"
-> & {
-  fields: (CustomField | LegacyCustomField)[];
-};
 
 export class CustomFieldModel extends BaseClass {
   protected canRead(): boolean {
@@ -112,38 +71,19 @@ export class CustomFieldModel extends BaseClass {
   }
 
   /**
-   * JIT readonly migration; does not persist.
-   * - normalize projects so [""] from legacy data is never returned
-   * - migrate legacy section (singular) to sections (array)
+   * JIT readonly migration: normalize projects so [""] from legacy data
+   * is never returned, and default section to "feature" for legacy fields
+   * that predate the section field. Does not persist.
    */
-  protected migrate(
-    legacyDoc: LegacyCustomFieldsDocument,
-  ): z.infer<typeof customFieldsValidator> {
+  protected migrate(legacyDoc: unknown): z.infer<typeof customFieldsValidator> {
+    const doc = legacyDoc as z.infer<typeof customFieldsValidator>;
     return {
-      ...legacyDoc,
-      fields: legacyDoc.fields.map((f) => {
-        const projects = (f.projects ?? []).filter((p) => p !== "");
-        let sections: CustomFieldSection[];
-        if (
-          Array.isArray(f.sections) &&
-          f.sections.every((s) => customFieldSectionValues.includes(s))
-        ) {
-          sections = f.sections;
-        } else if (
-          "section" in f &&
-          f.section &&
-          customFieldSectionValues.includes(f.section)
-        ) {
-          sections = [f.section];
-        } else {
-          sections = ["feature"];
-        }
-        return {
-          ...omit(f, ["section", "sections"]),
-          projects,
-          sections,
-        } as CustomField;
-      }),
+      ...doc,
+      fields: doc.fields.map((f) => ({
+        ...f,
+        section: f.section ?? "feature",
+        projects: (f.projects ?? []).filter((p) => p !== ""),
+      })),
     };
   }
 
@@ -184,12 +124,12 @@ export class CustomFieldModel extends BaseClass {
     section,
     project,
   }: {
-    section: CustomFieldSection;
+    section: string;
     project?: string;
   }) {
     const customFields = await this.getCustomFields();
-    const filteredCustomFields = customFields?.fields.filter((v) =>
-      v.sections?.includes(section),
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.section === section,
     );
     if (!filteredCustomFields || filteredCustomFields.length === 0) {
       return filteredCustomFields;
@@ -262,17 +202,6 @@ export class CustomFieldModel extends BaseClass {
     if (!existing) {
       return null;
     }
-    const existingField = existing.fields.find((f) => f.id === customFieldId);
-    const typeChanged =
-      customFieldUpdates.type !== undefined &&
-      existingField &&
-      existingField.type !== customFieldUpdates.type;
-    const valuesChanged =
-      existingField &&
-      (existingField.type === "enum" || existingField.type === "multiselect") &&
-      customFieldUpdates.values !== undefined &&
-      existingField.values !== customFieldUpdates.values;
-
     const newFields = existing.fields.map((field) => {
       if (field.id === customFieldId) {
         const merged = {
@@ -287,74 +216,18 @@ export class CustomFieldModel extends BaseClass {
       }
       return field;
     });
-    const updated = await this.update(existing, { fields: newFields });
-    if (!updated) return null;
-
-    if (typeChanged || valuesChanged) {
-      const sectionsToMigrate = [
-        ...new Set([
-          ...(existingField?.sections ?? []),
-          ...(customFieldUpdates.sections ??
-            existingField?.sections ?? ["feature"]),
-        ]),
-      ];
-      await migrateCustomFieldValues(
-        this.context,
-        customFieldId,
-        sectionsToMigrate as CustomFieldSection[],
-        existingField!.type,
-        customFieldUpdates.type!,
-        existingField!.values,
-        customFieldUpdates.values,
-      );
-    }
-
-    queueSDKPayloadRefresh({
-      context: this.context,
-      payloadKeys: [],
-      sdkConnections: [],
-      auditContext: {
-        event: "updated",
-        model: "custom-field",
-        id: customFieldId,
-      },
-    });
-    return updated;
+    return await this.update(existing, { fields: newFields });
   }
 
-  /**
-   * Delete a custom field by id. For legacy data with duplicate ids, use index
-   * as tiebreaker. If index is provided and matches a field with that id, delete
-   * that one; otherwise delete the first occurrence.
-   */
-  public async deleteCustomField(customFieldId: string, index?: number) {
+  public async deleteCustomField(customFieldId: string) {
     const existing = await this.getCustomFields();
     if (!existing) {
       return null;
     }
-    const indices = existing.fields
-      .map((f, i) => (f.id === customFieldId ? i : -1))
-      .filter((i) => i >= 0);
-    if (indices.length === 0) {
-      return null;
-    }
-    const toDelete =
-      index !== undefined && indices.includes(index) ? index : indices[0];
-    const newFields = existing.fields.filter((_, i) => i !== toDelete);
-    const updated = await this.update(existing, { fields: newFields });
-    if (updated) {
-      queueSDKPayloadRefresh({
-        context: this.context,
-        payloadKeys: [],
-        sdkConnections: [],
-        auditContext: {
-          event: "deleted",
-          model: "custom-field",
-          id: customFieldId,
-        },
-      });
-    }
-    return updated;
+    const newFields = existing.fields.filter(
+      (field) => field.id !== customFieldId,
+    );
+    return await this.update(existing, { fields: newFields });
   }
 
   /**
@@ -408,13 +281,12 @@ export class CustomFieldModel extends BaseClass {
     req: ApiRequest<
       unknown,
       z.ZodType<{ id: string }>,
-      z.ZodType<{ index?: number }>,
+      z.ZodTypeAny,
       z.ZodTypeAny
     >,
   ): Promise<string> {
     const id = req.params.id;
-    const index = (req.query as { index?: number }).index;
-    await this.deleteCustomField(id, index);
+    await this.deleteCustomField(id);
     return id;
   }
 
