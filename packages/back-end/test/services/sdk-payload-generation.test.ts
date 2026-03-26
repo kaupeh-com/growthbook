@@ -1833,7 +1833,9 @@ describe("SDK payload generation (scenario-specific)", () => {
       const featureDef = result.features["feature-with-all-metadata"];
       expect(featureDef.metadata).toBeDefined();
       expect(featureDef.metadata?.projects).toEqual(["test-public-id"]);
-      expect(featureDef.metadata?.customFields).toEqual({ "field-1": "value1" });
+      expect(featureDef.metadata?.customFields).toEqual({
+        "field-1": "value1",
+      });
       expect(featureDef.metadata?.tags).toEqual(["tag1", "tag2"]);
     });
 
