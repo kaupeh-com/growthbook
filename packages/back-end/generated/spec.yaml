@@ -1753,6 +1753,16 @@ paths:
                   type: boolean
                 includeRuleIds:
                   type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1841,6 +1851,16 @@ paths:
                 includeRedirectExperiments:
                   type: boolean
                 includeRuleIds:
+                  type: boolean
+                includeProjectIdInMetadata:
+                  type: boolean
+                includeCustomFieldsInMetadata:
+                  type: boolean
+                allowedCustomFieldsInMetadata:
+                  type: array
+                  items:
+                    type: string
+                includeTagsInMetadata:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -21080,6 +21100,16 @@ components:
         includeRedirectExperiments:
           type: boolean
         includeRuleIds:
+          type: boolean
+        includeProjectIdInMetadata:
+          type: boolean
+        includeCustomFieldsInMetadata:
+          type: boolean
+        allowedCustomFieldsInMetadata:
+          type: array
+          items:
+            type: string
+        includeTagsInMetadata:
           type: boolean
         key:
           type: string

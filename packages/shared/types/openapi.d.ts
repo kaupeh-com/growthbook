@@ -9738,6 +9738,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -9771,6 +9775,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9818,6 +9826,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9854,6 +9866,10 @@ export interface operations {
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
           includeRuleIds?: boolean;
+          includeProjectIdInMetadata?: boolean;
+          includeCustomFieldsInMetadata?: boolean;
+          allowedCustomFieldsInMetadata?: (string)[];
+          includeTagsInMetadata?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -9887,6 +9903,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -9952,6 +9972,10 @@ export interface operations {
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
               includeRuleIds?: boolean;
+              includeProjectIdInMetadata?: boolean;
+              includeCustomFieldsInMetadata?: boolean;
+              allowedCustomFieldsInMetadata?: (string)[];
+              includeTagsInMetadata?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
