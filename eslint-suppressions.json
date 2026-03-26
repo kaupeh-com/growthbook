@@ -1,12 +1,4 @@
 {
-  "docs/static/scripts/reo.js": {
-    "no-undef": {
-      "count": 1
-    },
-    "no-unused-expressions": {
-      "count": 1
-    }
-  },
   "packages/back-end/src/scripts/generate-openapi.mjs": {
     "prettier/prettier": {
       "count": 1
