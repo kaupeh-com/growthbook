@@ -1591,4 +1591,329 @@ describe("SDK payload generation (scenario-specific)", () => {
     });
     expect(outIncluded.experiments?.length).toBe(1);
   });
+
+  describe("Metadata in SDK Payloads", () => {
+    it("includes project ID in feature metadata when enabled", async () => {
+      const project = {
+        id: "proj-1",
+        name: "Test Project",
+        publicId: "test-public-id",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "",
+        settings: {},
+      };
+
+      const feature: FeatureInterface = {
+        id: "feature-with-project",
+        organization: "org-1",
+        project: "proj-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+        projects: [project],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeProjectIdInMetadata: true,
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-with-project"];
+      expect(featureDef).toBeDefined();
+      expect(featureDef.metadata).toBeDefined();
+      expect(featureDef.metadata?.projects).toEqual(["test-public-id"]);
+    });
+
+    it("falls back to project id when publicId is not set", async () => {
+      const project = {
+        id: "proj-1",
+        name: "Test Project",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "",
+        settings: {},
+      };
+
+      const feature: FeatureInterface = {
+        id: "feature-with-project",
+        organization: "org-1",
+        project: "proj-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+        projects: [project],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeProjectIdInMetadata: true,
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-with-project"];
+      expect(featureDef.metadata?.projects).toEqual(["proj-1"]);
+    });
+
+    it("includes custom fields filtered by whitelist", async () => {
+      const feature: FeatureInterface = {
+        id: "feature-with-custom-fields",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        customFields: {
+          "field-1": "value1",
+          "field-2": "value2",
+          "field-3": "value3",
+        },
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeCustomFieldsInMetadata: true,
+          allowedCustomFieldsInMetadata: ["field-1", "field-2"],
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-with-custom-fields"];
+      expect(featureDef.metadata).toBeDefined();
+      expect(featureDef.metadata?.customFields).toEqual({
+        "field-1": "value1",
+        "field-2": "value2",
+      });
+      expect(featureDef.metadata?.customFields).not.toHaveProperty("field-3");
+    });
+
+    it("includes all tags when includeTagsInMetadata is enabled", async () => {
+      const feature: FeatureInterface = {
+        id: "feature-with-tags",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        tags: ["tag1", "tag2", "tag3"],
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeTagsInMetadata: true,
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-with-tags"];
+      expect(featureDef.metadata).toBeDefined();
+      expect(featureDef.metadata?.tags).toEqual(["tag1", "tag2", "tag3"]);
+    });
+
+    it("includes all metadata types when all enabled", async () => {
+      const project = {
+        id: "proj-1",
+        name: "Test Project",
+        publicId: "test-public-id",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        description: "",
+        settings: {},
+      };
+
+      const feature: FeatureInterface = {
+        id: "feature-with-all-metadata",
+        organization: "org-1",
+        project: "proj-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        customFields: {
+          "field-1": "value1",
+          "field-2": "value2",
+        },
+        tags: ["tag1", "tag2"],
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+        projects: [project],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeProjectIdInMetadata: true,
+          includeCustomFieldsInMetadata: true,
+          allowedCustomFieldsInMetadata: ["field-1"],
+          includeTagsInMetadata: true,
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-with-all-metadata"];
+      expect(featureDef.metadata).toBeDefined();
+      expect(featureDef.metadata?.projects).toEqual(["test-public-id"]);
+      expect(featureDef.metadata?.customFields).toEqual({ "field-1": "value1" });
+      expect(featureDef.metadata?.tags).toEqual(["tag1", "tag2"]);
+    });
+
+    it("omits metadata object when all metadata fields disabled", async () => {
+      const feature: FeatureInterface = {
+        id: "feature-no-metadata",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        customFields: { "field-1": "value1" },
+        tags: ["tag1"],
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeProjectIdInMetadata: false,
+          includeCustomFieldsInMetadata: false,
+          includeTagsInMetadata: false,
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-no-metadata"];
+      expect(featureDef).toBeDefined();
+      expect(featureDef.metadata).toBeUndefined();
+    });
+
+    it("omits metadata when custom fields whitelist is empty", async () => {
+      const feature: FeatureInterface = {
+        id: "feature-empty-whitelist",
+        organization: "org-1",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        defaultValue: "default",
+        valueType: "string",
+        customFields: { "field-1": "value1" },
+        environmentSettings: {
+          production: { enabled: true, rules: [] },
+        },
+        owner: "",
+        archived: false,
+        version: 1,
+        linkedExperiments: [],
+      };
+
+      const data = minimalRawData({
+        features: [feature],
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: [],
+          environment: "production",
+          projects: null,
+          includeCustomFieldsInMetadata: true,
+          allowedCustomFieldsInMetadata: [],
+        },
+        data,
+      });
+
+      const featureDef = result.features["feature-empty-whitelist"];
+      expect(featureDef.metadata).toBeUndefined();
+    });
+  });
 });
