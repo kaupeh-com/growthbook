@@ -12,7 +12,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kaupeh-com/kaugrow
   OPENBAO_ADDR: https://openbao.kaupeh.work
-  OPENBAO_ROLE: kaugrow-staging-deploy
+  OPENBAO_ROLE: kaugrow-deploy
 
 jobs:
   build-and-push:
