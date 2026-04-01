@@ -18,6 +18,13 @@ export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   true,
 );
 
+// Default to false — set to true to allow open self-registration.
+// When false, only users with a pending invite can create an account.
+export const ALLOW_SELF_REGISTRATION = stringToBoolean(
+  process.env.ALLOW_SELF_REGISTRATION,
+  false,
+);
+
 export const UPLOAD_METHOD = (() => {
   if (IS_CLOUD) return "s3";
 

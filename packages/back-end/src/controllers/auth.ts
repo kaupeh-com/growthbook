@@ -8,8 +8,9 @@ import {
 import {
   createOrganization,
   hasOrganization,
+  getAllOrgMemberInfoInDb,
 } from "back-end/src/models/OrganizationModel";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { IS_CLOUD, ALLOW_SELF_REGISTRATION } from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -239,6 +240,20 @@ export async function postRegister(
     }
 
     return sendLocalSuccessResponse(req, res, existingUser);
+  }
+
+  // Check if self-registration is allowed, or if this email has a pending invite
+  if (!ALLOW_SELF_REGISTRATION) {
+    const orgs = await getAllOrgMemberInfoInDb();
+    const hasInvite = orgs.some((org) =>
+      org.invites?.some((inv) => inv.email === email),
+    );
+    if (!hasInvite) {
+      return res.status(403).json({
+        status: 403,
+        message: "You must be invited by an existing member to create an account.",
+      });
+    }
   }
 
   // Create new account
